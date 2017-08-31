@@ -96,7 +96,7 @@ class HubUDPServer(threading.Thread):
             return
         # control packet for a server ping - just return the same packet
         if recv_data.DeviceID < 0 and recv_data.Payload == b'CL_SVRPING':
-            print("Got ping from seq " + str(recv_data.Sequence))
+            #print("Got ping from seq " + str(recv_data.Sequence))
             self.senddevice(socket, recv_data.NetworkID, -recv_data.DeviceID,
                             data)
             return

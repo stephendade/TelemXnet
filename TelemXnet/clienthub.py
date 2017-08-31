@@ -76,8 +76,8 @@ class Clienthub(multiprocessing.Process):
             print("Ping already in process")
 
         # wait 500ms for ping returns
-        for i in range(0, 50):
-            time.sleep(0.01)
+        for i in range(0, 500):
+            time.sleep(0.001)
             if not self.ping_q.empty():
                 resp = self.ping_q.get()
                 if len(resp.split(',')) == 2:
@@ -105,6 +105,8 @@ class Clienthub(multiprocessing.Process):
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         serversocket.setblocking(False)
         serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10)
+        serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 10)
         serversocket.bind(self.localaddport)
         udpclients = []
         udpclientdevid = []
@@ -122,7 +124,7 @@ class Clienthub(multiprocessing.Process):
                 seq_no = self.sendallClients(udpclients, udpclientdevid, -1,
                                              seq_no, b'CL_SVRPING')
                 self.pinginprogress.value = 1
-                print("Sending ping " + str(seq_no))
+                # print("Sending ping " + str(seq_no))
                 for i in range(0, len(udpclients)):
                     self.ping_q.put(str(udpclientdevid[i]) + "," +
                                         str(udpclients[i].getiface()))
@@ -134,6 +136,7 @@ class Clienthub(multiprocessing.Process):
                 data, address = serversocket.recvfrom(util.getRxPacketSize())
 
                 # send to the all the clients...
+                # print("Sending data")
                 seq_no = self.sendallClients(udpclients, udpclientdevid, 1,
                                              seq_no, data)
 
@@ -170,7 +173,8 @@ class Clienthub(multiprocessing.Process):
             # close the sockets - just remove the first item n times
             # (array reindexes each time)
             for i in range(0, len(udpclients)):
-                udpclients[0].join()
+                udpclients[0].close()
+                time.sleep(0.001)
                 udpclients.remove(udpclients[0])
                 udpclientdevid.remove(udpclientdevid[0])
             serversocket.close()
@@ -197,7 +201,7 @@ class Clienthub(multiprocessing.Process):
                                                         ifacechange[4:]))
                 udpclientdevid.append(dev_id)
                 udpclients[len(udpclients)-1].start()
-                # time.sleep(0.01)
+                time.sleep(0.001)
                 msg = self.pkt.buildpacket(self.net_id, -dev_id,
                                            seq_no, b'CL_BEGIN')
                 udpclients[len(udpclients)-1].writepacket(msg)
@@ -212,7 +216,7 @@ class Clienthub(multiprocessing.Process):
                                                    seq_no, b'CL_END')
                         udpclients[i].writepacket(msg)
                         # time.sleep(0.01)
-                        udpclients[i].join()
+                        udpclients[i].close()
                         udpclients.remove(udpclients[i])
                         # print("Client " + ifacechange[4:] + " removed (" +
                         # str(udpclientdevid[i]) + ")")
@@ -222,5 +226,6 @@ class Clienthub(multiprocessing.Process):
         return (udpclients, udpclientdevid)
 
     def join(self, timeout=None):
-        self.endloop.value = 1
-        multiprocessing.Process.join(self, timeout)
+        if self.is_alive():
+            self.endloop.value = 1
+            multiprocessing.Process.join(self, timeout)

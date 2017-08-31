@@ -49,7 +49,7 @@ class ServerhubTestCase(unittest.TestCase):
         self.clientGCS = udpxciever.Udpxciever("127.0.0.1", 16250)
         self.clientUAS.start()
         self.clientGCS.start()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def test_twoclientssinglepacket(self):
         # encode
@@ -98,7 +98,7 @@ class ServerhubTestCase(unittest.TestCase):
 
         # send a data packet
         self.clientUAS.writepacket(msgUAS)
-        time.sleep(0.05)
+        time.sleep(0.001)
 
         # rx packets, with performance counters
         retmsgGCS = self.clientGCS.readpacket()
@@ -193,20 +193,20 @@ class ServerhubTestCase(unittest.TestCase):
     def readpackettime(self, client, basetime):
         ret_msg = None
         # print("Going for timing")
-        while ret_msg is None and util.gettimestamp() < (basetime+20000):
+        while ret_msg is None and util.gettimestamp() < (basetime+60000):
             ret_msg = client.readpacket()
         endtime = util.gettimestamp()
         delaytime = int((endtime/10 - basetime/10))
         #print("Response time is " + str(delaytime) + "ms")
-        self.assertTrue(delaytime < 10, "Response time is too long")
+        self.assertTrue(delaytime < 600, "Response time is too long")
         return ret_msg
 
     def tearDown(self):
         # print("Term")
-        self.clientUAS.join()
-        self.clientGCS.join()
+        self.clientUAS.close()
+        self.clientGCS.close()
         self.srv.close()
-        time.sleep(0.1)
+        time.sleep(0.01)
 
 if __name__ == '__main__':
     unittest.main()

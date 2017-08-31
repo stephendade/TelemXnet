@@ -78,7 +78,7 @@ class UnipacketTestCase(unittest.TestCase):
         # make a client and run
         self.client = udpxciever.Udpxciever("127.0.0.1", 16000)
         self.client.start()
-        time.sleep(0.07)
+        time.sleep(0.01)
 
     def test_packetsendrecievesingle(self):
         self.msgtwo = self.pkt.buildpacket(self.network_id, self.device_id,
@@ -126,9 +126,9 @@ class UnipacketTestCase(unittest.TestCase):
 
     def tearDown(self):
         # print("Term")
-        self.client.join()
+        self.client.close()
         self.server_thread.exit()
-        time.sleep(0.07)
+        time.sleep(0.01)
 
 if __name__ == '__main__':
     unittest.main()

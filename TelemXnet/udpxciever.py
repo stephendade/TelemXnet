@@ -26,65 +26,80 @@
 import socket
 import select
 import errno
+import queue
+import threading
+import multiprocessing
+import collections
 
 # Via pip
 
 # In this repo
 from TelemXnet import util
 
-class Udpxciever():
+class Udpxciever(threading.Thread):
     """This a a UDP transciever for sending and recieving data packets
     to a UAVNet server"""
     def __init__(self, address, port, iface="127.0.0.1"):
+        threading.Thread.__init__(self)
         self.iface = iface
         self.rem = (address, port)
         self.rxbuffer = b''
+        self.packetsRx = collections.deque()
+        self.packetsTx = collections.deque()
         # self.manager = Manager()
         self.protocol_header = b'\x00'
+        self.isExit = False
 
-    def start(self):
+    def run(self):
         """Start the transciever"""
         self.xmittersocket = udpclient(self.rem[0], self.rem[1], self.iface)
+        
+        #keep trying to rx packets...
+        while not self.isExit:
+            curdata = self.xmittersocket.recv()
+            if curdata:
+                self.rxbuffer  += curdata
+                #print("buf is " + str(self.rxbuffer) + "chars")
+                
+            if self.protocol_header in self.rxbuffer:
+                indStart = self.rxbuffer.find(self.protocol_header)
+                indEnd = self.rxbuffer.find(self.protocol_header, indStart+1)
+                
+                if indStart != -1 and indEnd != -1:
+                    # print("rxqueue put at, " + str(util.gettimestamp()))
+                    nxtpkt = self.rxbuffer[indStart:indEnd+1]
+                    if len(self.rxbuffer) > indEnd:
+                        self.rxbuffer = self.rxbuffer[indEnd+1:]
+                    else:
+                        self.rxbuffer = b''
+                    self.packetsRx.append(nxtpkt)
+                    
+            if len(self.packetsTx) > 0:
+                self.xmittersocket.write(self.packetsTx.popleft())
+                
+        self.xmittersocket.close()
 
     def getiface(self):
         """Get the IP interface used by this transciever"""
         return self.iface
 
-    def join(self):
+    def close(self):
         """Close this transciever"""
-        self.xmittersocket.close()
+        self.isExit = True
 
     def writepacket(self, packet):
         """Transmit a data packet
         """
         # print("TXQueue put at, " + str(util.gettimestamp()))
-        self.xmittersocket.write(packet)
+        # self.xmittersocket.write(packet)
+        self.packetsTx.append(packet)
 
     def readpacket(self):
-        """Read the latest data packet.
+        """Read the latest data packet from the queue
         Only returns a single packet at a time
         """
-        while True:
-            curbytes = self.xmittersocket.recv()
-            self.rxbuffer += curbytes
-            if not curbytes:
-                break
-
-        if self.rxbuffer is not b'':
-            # print("pp")
-            indStart = self.rxbuffer.find(self.protocol_header)
-            indEnd = self.rxbuffer.find(self.protocol_header, indStart+1)
-            # print("rxqueue find at, " + str(indStart) + ", " + str(indEnd))
-
-            if indStart != -1 and indEnd != -1:
-                # print("rxqueue put at, " + str(util.gettimestamp()))
-                nxtpkt = self.rxbuffer[indStart:indEnd+1]
-                if len(self.rxbuffer) > indEnd:
-                    self.rxbuffer = self.rxbuffer[indEnd+1:]
-                else:
-                    self.rxbuffer = b''
-                return nxtpkt
-
+        if len(self.packetsRx) > 0:
+            return self.packetsRx.popleft()
         else:
             return None
 
@@ -110,14 +125,14 @@ class udpclient():
         #r, _, _ = select.select([self.port], [], [], 0.0001)
         ready = select.select([self.port], [], [], 0.0001)
         if not ready:
-            return b''
+            return None
 
         try:
             data, new_addr = self.port.recvfrom(util.getRxPacketSize())
         except socket.error as excpt:
             if excpt.errno in [errno.EAGAIN, errno.EWOULDBLOCK,
                                errno.ECONNREFUSED]:
-                return b''
+                return None
             raise
         return data
 

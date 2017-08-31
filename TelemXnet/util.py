@@ -35,5 +35,5 @@ def gettimestamp():
     return int(time.time()*10000)
     
 def getRxPacketSize():
-    """Return the number of bytes for a socket to rx"""
+    """Return the default number of bytes for a socket to rx"""
     return 254

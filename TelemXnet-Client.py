@@ -73,7 +73,7 @@ if __name__ == '__main__':
     remoteserver = (args.remote.split(':')[0], int(args.remote.split(':')[1]))
 
     client = clienthub.Clienthub(("127.0.0.1", args.localport), remoteserver, args.netid.encode("utf8"), base_id)
-    print("Started Client")
+    # print("Started Client")
 
     # check for interfaces to add
     if args.localonly:
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     # start the client
     client.start()
-    print("Started Client2")
+    # print("Started Client2")
 
     # while waiting for a ctrl+c, ping the server every 1 sec
     try:

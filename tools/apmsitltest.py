@@ -36,14 +36,14 @@ from TelemXnet import clienthub
 
 if __name__ == '__main__':
     # start a server
-    #srv = serverhub.ServerHub("192.168.0.105", 16250)
-    #srv.run()
+    srv = serverhub.ServerHub("127.0.0.1", 16250)
+    srv.run()
     network_id = os.urandom(32)
-    #print("Server is up and running at 192.168.0.105:16250")
+    print("Server is up and running at 127.0.0.1:16250")
 
     # start a clienthub at each end
-    GCSClient = clienthub.Clienthub(("127.0.0.1", 14650), ("192.168.0.101", 16250), network_id, 32)
-    UASClient = clienthub.Clienthub(("127.0.0.1", 14550), ("192.168.0.101", 16250), network_id, 1)
+    GCSClient = clienthub.Clienthub(("127.0.0.1", 14650), ("127.0.0.1", 16250), network_id, 32)
+    UASClient = clienthub.Clienthub(("127.0.0.1", 14550), ("127.0.0.1", 16250), network_id, 1)
     GCSClient.addinterface("192.168.0.105")
     UASClient.addinterface("192.168.0.105")
     GCSClient.start()
