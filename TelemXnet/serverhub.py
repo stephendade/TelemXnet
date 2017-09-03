@@ -25,6 +25,8 @@
 # Default python libs
 import threading
 import socket
+import select
+import errno
 
 # Via pip
 
@@ -46,17 +48,23 @@ class HubUDPServer(threading.Thread):
         """Start running the UDP Server"""
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.settimeout(0.01)
+        self.sock.setblocking(False)
         self.sock.bind((self.ip, self.port))
         self.devicedb = devicedict.Devicedict()
         while not self.isExit:
-            try:
-                data, client = self.sock.recvfrom(util.getRxPacketSize())
-                # print("Echoing data back to " + str(client_address))
-                self.processPacket(data, client, self.sock)
-                # sent = sock.sendto(payload, client_address)
-            except socket.timeout:
-                pass
+            ready = select.select([self.sock], [], [], 0.0001)
+            if ready:
+                try:
+                    data, client = self.sock.recvfrom(util.getRxPacketSize())
+                    # print("Echoing data back to " + str(client_address))
+                    self.processPacket(data, client, self.sock)
+                    # sent = sock.sendto(payload, client_address)
+                except socket.error as excpt:
+                    if excpt.errno in [errno.EAGAIN, errno.EWOULDBLOCK,
+                                       errno.ECONNREFUSED]:
+                        pass
+                    else:
+                        raise
         self.sock.close()
 
     def exit(self):
