@@ -63,7 +63,7 @@ class UnipacketTestCase(unittest.TestCase):
         # make a packet
         self.device_id = random.randint(-64, 64)
         self.network_id = os.urandom(32)
-        self.sequence = random.randint(0, 1000000)
+        self.sequence = random.randint(0, 10000)
         self.payload = os.urandom(16)
 
         self.pkt = unipacket.Unipacket()

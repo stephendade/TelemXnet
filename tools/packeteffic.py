@@ -35,7 +35,7 @@ if __name__ == '__main__':
     pkt = unipacket.Unipacket()
     device_id = random.randint(-64, 64)
     network_id = os.urandom(32)
-    sequence = random.randint(0, 1000000)
+    sequence = random.randint(0, 10000)
     
     for i in [8, 16, 32, 64, 128, 255]:
         ppayload = os.urandom(i)

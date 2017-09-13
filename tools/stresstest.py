@@ -28,6 +28,7 @@ import time
 import os
 import socket
 import random
+import select
 
 # Via pip
 
@@ -61,12 +62,13 @@ def streamTest(ExtGCS, ExtUAS, numPacket, delay, minsize, maxsize):
         
         time.sleep(delay)
         
-        try:
+        readyGCS = select.select([ExtGCS], [], [], 0.0001)
+        readyUAS = select.select([ExtUAS], [], [], 0.0001)
+        if readyGCS[0]:
             GCSRx += ExtGCS.recv(1024)
+        if readyUAS[0]:
             UASRx += ExtUAS.recv(1024)
-        except:
-            pass
-
+            
     #and check how many packets we got
     GCSPercent = int((100 * len(GCSRx)) / len(UASTx))
     UASPercent = int((100 * len(UASRx)) / len(GCSTx))
@@ -76,9 +78,8 @@ def streamTest(ExtGCS, ExtUAS, numPacket, delay, minsize, maxsize):
         print("Pass")
     else:
         print("Got GCS " + str(len(GCSRx)) + "/" + str(len(UASTx)) + " packets")
-        print("Got UAS " + str(len(UASRx)) + "/" + str(len(GCSRx)) + " packets")
+        print("Got UAS " + str(len(UASRx)) + "/" + str(len(GCSTx)) + " packets")
         print("Got UAS=" + str(UASPercent) + "%, GCS=" + str(GCSPercent) + "%")
-
 
 if __name__ == '__main__':
     # start a server
@@ -90,8 +91,8 @@ if __name__ == '__main__':
     # start a clienthub at each end
     GCSClient = clienthub.Clienthub(("127.0.0.1", 14650), ("127.0.0.1", 16250), network_id, 32)
     UASClient = clienthub.Clienthub(("127.0.0.1", 14550), ("127.0.0.1", 16250), network_id, 1)
-    GCSClient.addinterface("192.168.0.105")
-    UASClient.addinterface("192.168.0.105")
+    GCSClient.addinterface("127.0.0.1")
+    UASClient.addinterface("127.0.0.1")
     GCSClient.start()
     print("GCS client is up and running at 127.0.0.1:14650")
     UASClient.start()
@@ -101,14 +102,14 @@ if __name__ == '__main__':
     #Start some sockets for the UAS/GCS (with small Rx buffers)
     ExtGCS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ExtGCS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    ExtGCS.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 60)
-    ExtGCS.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 60)
-    ExtGCS.settimeout(0.001)
+    #ExtGCS.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 60)
+    #ExtGCS.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 60)
+    ExtGCS.settimeout(0.0001)
     ExtUAS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ExtUAS.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    ExtUAS.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 60)
-    ExtUAS.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 60)
-    ExtUAS.settimeout(0.001)
+    #ExtUAS.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 60)
+    #ExtUAS.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 60)
+    ExtUAS.settimeout(0.0001)
     
     #ExtGCS.connect(("127.0.0.1", 14650))
     #ExtUAS.connect(("127.0.0.1", 14550))

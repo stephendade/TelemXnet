@@ -43,6 +43,7 @@ class ServerhubTestCase(unittest.TestCase):
         # print("Booting Server")
         self.srv = serverhub.ServerHub()
         self.srv.run()
+        time.sleep(0.05)
 
         # print("Booting client")
         self.clientUAS = udpxciever.Udpxciever("127.0.0.1", 16250)
@@ -179,7 +180,7 @@ class ServerhubTestCase(unittest.TestCase):
         self.assertEqual(retping, pingpkt, "MessageP GCS -> GCS incorr")
 
     def makePacketrnd(self, network_id, device_id, _payload=b''):
-        seq = random.randint(0, 1000000)
+        seq = random.randint(0, 10000)
         if _payload == b'':
             payload = os.urandom(16)
         else:
