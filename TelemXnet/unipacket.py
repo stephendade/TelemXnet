@@ -26,7 +26,7 @@
 # Default python libs
 import hashlib
 from construct import Struct, RawCopy, Byte, Bytes
-from construct import Int8sb, Int32ub, this, Checksum
+from construct import Int8sb, Int16ub, this, Checksum
 
 # Via pip
 from cobs import cobsr
@@ -43,7 +43,7 @@ class Unipacket(object):
     The packet includes a 8 byte CRC (sha-256 based)at the end.
     It also is put through COBS/R to ensure no 0x00 bytes in packet.
     Each packet has a 0x00 header
-    Payload is a max 255 bytes
+    Payload is a max 255-32-32-8-1-8 =  174 bytes
     """
     def __init__(self):
         self.protocol_header = b'\x00'
@@ -51,15 +51,19 @@ class Unipacket(object):
             "fields" / RawCopy(Struct(
                 "NetworkID" / Bytes(32),
                 "DeviceID" / Int8sb,
-                "Sequence" / Int32ub,
+                "Sequence" / Int16ub,
                 "Payload_length" / Byte,
                 "Payload" / Bytes(this.Payload_length)
             )),
-            "checksum" / Checksum(Bytes(8), lambda data:
-                                  hashlib.sha256(data).digest()[0:8],
+            "checksum" / Checksum(Bytes(4), lambda data:
+                                  hashlib.sha256(data).digest()[0:4],
                                   this.fields.data),
         )
 
+    def maxPayloadSize(self):
+        """Returns the max payload size, 254 minus the headers"""
+        return 254 - 32 - 8 - 16 - 1 - 4
+        
     def buildpacket(self, _id, _device, _sequence, _payload):
         """Construct a packet based on the networkID, deviceID, timestamp
         and payload. Returns a series of bytes prepended with the header"""
@@ -100,7 +104,7 @@ class Unipacket(object):
             return None
 
         # verify the hash code
-        chk = hashlib.sha256(pkt_struct.fields.data).digest()[0:8]
+        chk = hashlib.sha256(pkt_struct.fields.data).digest()[0:4]
         if chk != pkt_struct.checksum:
             return None
 
