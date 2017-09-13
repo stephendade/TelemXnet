@@ -105,8 +105,8 @@ class Clienthub(multiprocessing.Process):
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         serversocket.setblocking(False)
         serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10)
-        serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 10)
+        #serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 10)
+        #serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 10)
         serversocket.bind(self.localaddport)
         udpclients = []
         udpclientdevid = []
@@ -132,8 +132,9 @@ class Clienthub(multiprocessing.Process):
 
             ready = select.select([serversocket], [], [], 0.0001)
             # if there is data from the local client, send it to the remote
+            # only read up to the max payload size though
             if ready[0]:
-                data, address = serversocket.recvfrom(util.getRxPacketSize())
+                data, address = serversocket.recvfrom(self.pkt.maxPayloadSize())
 
                 # send to the all the clients...
                 # print("Sending data")
