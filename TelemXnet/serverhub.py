@@ -27,8 +27,12 @@ import threading
 import socket
 import select
 import errno
+import socketserver
 
 # Via pip
+#from gevent.server import DatagramServer
+#from gevent.lock import BoundedSemaphore
+#from gevent import monkey
 
 # In this repo
 from TelemXnet import unipacket
@@ -36,52 +40,28 @@ from TelemXnet import devicedict
 from TelemXnet import util
 
 
-class HubUDPServer(threading.Thread):
-    """A UDP Server that relays any packets to and from clients"""
-    def __init__(self, ip, port):
-        threading.Thread.__init__(self)
-        self.ip = ip
-        self.port = port
-        self.isExit = False
+devicedb = devicedict.Devicedict()
 
-    def run(self):
-        """Start running the UDP Server"""
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setblocking(False)
-        self.sock.bind((self.ip, self.port))
-        self.devicedb = devicedict.Devicedict()
-        while not self.isExit:
-            ready = select.select([self.sock], [], [], 0.0001)
-            if ready:
-                try:
-                    data, client = self.sock.recvfrom(util.getRxPacketSize())
-                    # print("Echoing data back to " + str(client_address))
-                    self.processPacket(data, client, self.sock)
-                    # sent = sock.sendto(payload, client_address)
-                except socket.error as excpt:
-                    if excpt.errno in [errno.EAGAIN, errno.EWOULDBLOCK,
-                                       errno.ECONNREFUSED]:
-                        pass
-                    else:
-                        raise
-        self.sock.close()
-
-    def exit(self):
-        """Shutdown the UDP server"""
-        self.isExit = True
-
-    def processPacket(self, data, client_address, socket):
+class ThreadedUDPRequestHandler(socketserver.BaseRequestHandler):
+        
+    def handle(self):
         """Handle a recived packet - process it and send it out
         to any applicable clients"""
-
+        self.pkt = unipacket.Unipacket()
         # assume single complete packet has been recieved
         # send the id's to database
-        pkt = unipacket.Unipacket()
-        recv_data = pkt.recoverpacket(data)
+        data = self.request[0]
+        if not data:
+            return
+
+        socket = self.request[1]
+        
+        client_address = self.client_address
+        recv_data = self.pkt.recoverpacket(data)
 
         # bad packet
         if not recv_data:
+            print("bad data")
             return
 
         # search through db for any clients to send to
@@ -92,7 +72,7 @@ class HubUDPServer(threading.Thread):
             # control packet
             # print("Got Control Packet from " + str(recv_data.NetworkID) + "-"
             #  + str(-recv_data.DeviceID))
-            self.devicedb.addremote(recv_data.NetworkID, -recv_data.DeviceID,
+            devicedb.addremote(recv_data.NetworkID, -recv_data.DeviceID,
                                     client_address[0], client_address[1])
             return
         # control packet to remove client
@@ -100,11 +80,11 @@ class HubUDPServer(threading.Thread):
             # control packet
             # print("Got Control Packet from " + str(recv_data.NetworkID) + "-"
             #  + str(-recv_data.DeviceID))
-            self.devicedb.removeremote(recv_data.NetworkID, -recv_data.DeviceID)
+            devicedb.removeremote(recv_data.NetworkID, -recv_data.DeviceID)
             return
         # control packet for a server ping - just return the same packet
         if recv_data.DeviceID < 0 and recv_data.Payload == b'CL_SVRPING':
-            #print("Got ping from seq " + str(recv_data.Sequence))
+            print("Got ping from seq " + str(recv_data.Sequence))
             self.senddevice(socket, recv_data.NetworkID, -recv_data.DeviceID,
                             data)
             return
@@ -124,14 +104,18 @@ class HubUDPServer(threading.Thread):
 
     def senddevice(self, socket, network_id, device_id, data):
         """Send a packet to a client via a database lookup"""
-        (ip_ret, port) = self.devicedb.getremote(network_id, device_id)
+        (ip_ret, port) = devicedb.getremote(network_id, device_id)
 
         if ip_ret and port:
             ret_address = (ip_ret, port)
+            #t = threading.Thread(target=socket.sendto, args=(data, ret_address))
+            #t.start()
             socket.sendto(data, ret_address)
             # print("Sent ")
 
-
+class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    pass
+    
 class ServerHub():
     """This class is a small UAVNet server. All clients connect to this. The
     server will route packets as required to the clients"""
@@ -139,14 +123,17 @@ class ServerHub():
     def __init__(self, address="127.0.0.1", portin=16250):
         """Contstructor. Can override the IP and port that the server is
         bound to"""
-        self.server_thread = HubUDPServer(address, portin)
-        self.server_thread.daemon = True
+        self.server = ThreadedUDPServer((address, portin), ThreadedUDPRequestHandler)
+        self.server_thread = threading.Thread(target=self.server.serve_forever)
 
     def run(self):
         """Start running the server"""
+        #self.server_thread.start()
+        # self.server_thread.daemon = True
         self.server_thread.start()
 
     def close(self):
         """Shutdown the server"""
-        self.server_thread.exit()
+        #self.server_thread.exit()
         # print("Server shutdown")
+        self.server.shutdown()
