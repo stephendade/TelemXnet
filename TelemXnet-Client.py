@@ -49,7 +49,7 @@ def ip4_addresses():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--netid", help="The network ID (32 length string)", default=os.urandom(32))
-    parser.add_argument("--remote", help="Server ip:port (ie 127.0.0.1:16250)", default='127.0.0.1:16250')
+    parser.add_argument("--remote", help="Server ip:port (ie 127.0.0.1:16250) or url:port (ie. google.com:16250", default='127.0.0.1:16250')
     parser.add_argument("--localport", help="Local port to listen on", type=int, default=14650)
     parser.add_argument("--localonly", help="Use localhost only", action="store_true")
     parser.add_argument("--mode", help="uas or gcs side", default='gcs')
